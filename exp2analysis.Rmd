@@ -1,0 +1,427 @@
+---
+title: "experiment 2 stats and figures"
+output: html_document
+date: "2023-10-15"
+---
+
+```{r setup, include=FALSE}
+## packages
+library(tidyverse)
+library(plotrix)
+library(ggforce)
+library(glue)
+library(effectsize)
+library(broom)
+
+## load data
+data =  read_csv('./exp2.csv')
+
+
+
+## helper function for significance stars
+sig_stars = function(p) {
+    if (p <= 0.005) {
+      stars = 3
+    } else if (p <= 0.01) {
+      stars = 2
+    } else if (p <= 0.05) {
+      stars = 1
+    } else {
+      stars = 0
+    }
+  return(stars)
+}
+
+
+################ image formatting ##############
+## for testing/changing formatting, see block at the end of this script 
+
+## colors
+sns_light = c("#8DBAB4", "#E8A896") 
+sns_dark = c("#5E8B8A", "#BF7666")
+# sns_colors = c("#76a39f","#e39784") #d48f7e
+sns_colors = c("#00B3A1","#F9A900" )
+combo_color = "#395FFF" #"#B9A8CD"
+combo_dark = "#395FFF" #"#8E809D" #"#b72ece"
+double_combo = c("#AFA7DF", "#9D758B" )
+lines = "#766B83"
+washcolors =c("#74A4C9", "#DEA278", "#699E9B", "#B55E52")
+ndot_colors = c("#FF7D62", "#BC63E2")
+
+
+## size
+img_w = 5
+img_h = 5
+ln_size = 1
+pt_size = 3
+ax_size = 0.5
+err_size = 1
+err_width = 0
+err_alpha = 1
+pd = position_dodge(width = 0.15)
+
+## shapes
+ss_shapes = c(1,16)
+
+## theme
+mytheme = theme(
+                text = element_text(family = "Arial", size = 18),
+                aspect.ratio = 9/10,
+                plot.title = element_text(hjust = 0.5),
+                panel.background = element_rect("transparent"),
+                panel.grid.major = element_blank(),
+                panel.grid.minor= element_blank(),
+                axis.ticks = element_line(size = ax_size),
+                axis.ticks.length = unit(ax_size, "cm"),
+                axis.text = element_text(size = 18, color = "black"),
+                axis.line.x.bottom = element_line(size = ax_size, color = "black"),
+                axis.line.y = element_line(size = ax_size, color = "black"),
+                legend.position = "none"
+                )
+
+
+
+```
+
+Overall Switch Effect (regardless of size)
+```{r overall switch effect (paper) }
+
+# interfering movements condition
+irr_mvmt_err = data %>%
+  filter(type == 1) %>% ## interference conditions only
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, switch_cond) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond,  pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("irr mvmts"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(irr_mvmt_err)
+
+## delay condition
+delay_err = data %>% 
+  filter(type == 0) %>% ## delay conditions only
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, switch_cond) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond,  pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("delay"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(delay_err)
+
+
+```
+
+Irrelevant Movement Trials
+```{r Figure 2B (top) - error (no switch vs switch)}
+
+## within pt
+fig2b = data %>% 
+  filter(type == 1) %>% ## interference conditions only
+  mutate(n_moves = ifelse(size == 0, 1,3)) %>%
+  group_by(id, switch_hands, n_moves) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') 
+
+## across pt 
+fig2b = fig2b %>%
+  group_by(switch_hands, n_moves) %>%
+  summarize(mean_err = mean(pt_mean_err), sd = sd(pt_mean_err), n = n(), .groups = 'drop')
+fig2b$sem = fig2b$sd/sqrt(fig2b$n) ## standard error
+
+## main plot
+del2btop = ggplot(data = fig2b, aes( x = n_moves, y = mean_err, color = factor(switch_hands))) +
+        geom_line(size = ln_size, position = pd)  +
+        geom_point(size = pt_size, position = pd) +
+        geom_errorbar(aes(ymin = mean_err - sem,
+                          ymax = mean_err + sem),
+                          size = ln_size, width = err_width, position = pd) +
+        scale_color_manual(values = sns_colors)+
+        scale_shape_manual(values = c(16, 13)) +
+        scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+        scale_y_continuous(limits = c(3.1,5), breaks = c(3.2, 3.7, 4.2, 4.7)) +
+        labs(
+          y = "Error \n (Distance from target, cm) \n",
+          x = "\n Number of irrelevant movements ") +
+        mytheme
+
+
+ggsave(file= '../all_plots/del2btop.svg', plot = del2btop)
+
+del2btop
+
+```
+
+```{r Figure 2B (bottom) - cost (switch - noswitch)}
+
+## within pt
+fig2bcost = data %>% 
+  filter(type == 1) %>% ## interference conditions only
+  mutate(n_moves = ifelse(size == 0, 1,3)) %>%
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
+  group_by(id, switch_cond, n_moves) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  mutate(cost = switch - noswitch) %>%  ## cost = switch - noswitch
+  select(id, n_moves, cost)
+
+## across pt
+fig2bcost = fig2bcost %>% 
+  group_by(n_moves) %>% 
+  summarize(mean_cost = mean(cost), sd = sd(cost), n = n())
+fig2bcost$sem = fig2bcost$sd/ sqrt(fig2bcost$n)
+
+## main plot
+del2bbottom = ggplot(data = fig2bcost, aes( x = n_moves, y = mean_cost)) +
+        geom_line(size = ln_size, position = pd, color = combo_dark)  +
+        geom_point(size = pt_size, position = pd, color = combo_dark) +
+        geom_errorbar(aes(ymin = mean_cost - sem,
+                          ymax = mean_cost + sem),
+                          size = ln_size, width = err_width, position = pd, color = combo_dark) +
+        scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+        scale_y_continuous(limits = c(0, 1.2), breaks = c(0.1, 0.4, 0.7, 1)) +
+        labs(
+          y = "Switch Cost \n (Switch - No-switch, cm) \n",
+          x = "\n Number of irrelevant movements") +
+        mytheme
+
+
+## significance stars
+fig2bcost_stars = data %>% 
+  filter(type == 1) %>% ## interference conditions only
+  mutate(n_moves = paste0('ss', ifelse(size == 0, 1,3))) %>%
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
+  group_by(id, switch_cond, n_moves) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  mutate(cost = switch - noswitch) %>%  ## cost = switch - noswitch
+  select(id, n_moves, cost)%>% 
+  spread(n_moves, cost) %>% 
+  do(broom::tidy(t.test(.$ss1, .$ss3, paired = TRUE))) %>%
+  summarize(condition = paste0("irr mvmt sw cost (sw v nosw)"), t = statistic, p = p.value, stars = sig_stars(p.value) )
+print(fig2bcost_stars)
+  
+ggsave(file= '../all_plots/del2bbottom.svg', plot = del2bbottom)
+
+```
+
+```{r Stats and Stars 2B}
+
+## df setup 
+fig2bstats = data %>% 
+  filter(type == 1) %>% ## interference conditions only
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(n_moves = ifelse(size == 0, 'n1', 'n3')) %>%
+  group_by(id, switch_cond, n_moves) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop')
+
+#####  NO SWITCH - SWITCH  (stars in graph above) ######
+
+f2bt_moves_n1 = fig2bstats %>% ## 1 extra move only
+  filter(n_moves == 'n1') %>%
+  spread(switch_cond, pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("1 Irrelevant Mvmt  "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(f2bt_moves_n1)
+
+
+f2bt_moves_n3 = fig2bstats %>% ## 3 extra moves only
+  filter(n_moves == 'n3') %>%
+  spread(switch_cond, pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("3 Irrelevant Mvmts  "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(f2bt_moves_n3)
+
+
+#####  1 vs 3 EXTRA MOVES  ######
+
+f2bt_noswitch = fig2bstats %>%
+  filter(switch_cond == 'sw0') %>% ## noswitch only
+  spread(n_moves, pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("No switch (1 - 3 moves)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(f2bt_noswitch)
+
+
+f2bt_switch = fig2bstats %>%
+  filter(switch_cond == 'sw1') %>% ## switch only
+  spread(n_moves, pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Switch (1 - 3 moves)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(f2bt_switch)
+
+
+#### COST (bottom panel)
+
+fig2bb_cost = fig2bstats %>% 
+  spread(switch_cond, pt_mean_err) %>% 
+  mutate(cost = sw1 - sw0) %>%  ## cost = switch - noswitch
+  select(id, n_moves, cost) %>% 
+  spread(n_moves, cost) %>%
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Irrelevant Movements Switch Cost"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig2bb_cost)
+  
+  
+
+```
+
+
+Delay Trials
+
+```{r Figure 2C (top) - error (no switch vs switch)}
+
+## within pt
+fig2c = data %>% 
+  filter(type == 0) %>% ## delay conditions only
+  # mutate(delay = ifelse(size == 0, 3.7, 11.1)) %>%
+  mutate(delay = ifelse(size == 0, 1, 3)) %>%
+  group_by(id, switch_hands, delay) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') 
+
+## across pt 
+fig2c = fig2c %>%
+  group_by(switch_hands, delay) %>%
+  summarize(mean_err = mean(pt_mean_err), sd = sd(pt_mean_err), n = n(), .groups = 'drop')
+fig2c$sem = fig2c$sd/sqrt(fig2c$n) ## standard error
+
+## main plot
+del2ctop = ggplot(data = fig2c, aes( x = delay, y = mean_err, color = factor(switch_hands))) +
+        geom_line(size = ln_size, position = pd)  +
+        geom_point(size = pt_size, position = pd) +
+        geom_errorbar(aes(ymin = mean_err - sem,
+                          ymax = mean_err + sem),
+                          size = ln_size, width = err_width, position = pd) +
+        scale_color_manual(values = sns_colors)+
+        scale_shape_manual(values = c(16, 13)) +
+        scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+        scale_y_continuous(limits = c(3.1,5), breaks = c(3.2, 3.7, 4.2, 4.7)) +
+        labs(
+          y = "Error \n (Distance from target, cm) \n",
+          x = "\n Short or long delay (seconds)") +
+        mytheme
+
+ggsave(file= '../all_plots/del2ctop.svg', plot = del2ctop)
+
+del2ctop
+
+```
+
+```{r Figure 2C (bottom) - cost (switch - noswitch)}
+
+## within pt
+fig2ccost = data %>% 
+  filter(type == 0) %>% ## delay conditions only
+  mutate(delay = ifelse(size == 0, 1, 3)) %>% # 1 = 3.7s, 3 = 11.1s
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
+  group_by(id, switch_cond, delay) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  mutate(cost = switch - noswitch) %>%  ## cost = switch - noswitch
+  select(id, delay, cost)
+
+## across pt
+fig2ccost = fig2ccost %>%
+  group_by(delay) %>%
+  summarize(mean_cost = mean(cost), sd = sd(cost), n = n())
+fig2ccost$sem = fig2ccost$sd/ sqrt(fig2ccost$n)
+
+## main plot
+del2cbottom = ggplot(data = fig2ccost, aes( x = delay, y = mean_cost)) +
+        geom_line(size = ln_size, position = pd, color = combo_dark)  +
+        geom_point(size = pt_size, position = pd, color = combo_dark) +
+        geom_errorbar(aes(ymin = mean_cost - sem,
+                          ymax = mean_cost + sem),
+                          size = ln_size, width = err_width, position = pd, color = combo_dark) +
+        scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+        scale_y_continuous(limits = c(0, 1.2), breaks = c(0.1, 0.4, 0.7, 1)) +
+        labs(
+          y = "Switch Cost \n (Switch - No-switch, cm) \n",
+          x = "\n Delay") +
+        mytheme
+
+ggsave(file= '../all_plots/del2cbottom.svg', plot = del2cbottom)
+del2cbottom
+```
+
+```{r Stats and Stars 2C}
+
+## dataframe setup 
+fig2cstats = data %>% 
+  filter(type == 0) %>% ## delay conditions only
+  mutate(delay = ifelse(size == 0, 'short', 'long')) %>%
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, switch_cond, delay) %>% 
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') 
+
+#####  NO SWITCH - SWITCH  (stars in graph above) ######
+f2ct_short = fig2cstats %>% ## short delay
+  filter(delay == 'short')%>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Short Delay"),  df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value) )
+print(f2ct_short)
+
+
+f2ct_long = fig2cstats %>% ## long delay
+  filter(delay == 'long')%>% 
+  spread(switch_cond, pt_mean_err)%>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Long Delay"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value) )
+print(f2ct_long)
+
+
+#####  SHORT vs LONG DELAY  ######
+
+f2c_nosw = fig2cstats %>% 
+  filter(switch_cond == 'sw0')%>% ## noswitch only
+  spread(delay, pt_mean_err)%>%
+  do({ttest = broom::tidy(t.test(.$short, .$long, paired = TRUE))
+    cd = effectsize::cohens_d(.$short, .$long, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("no switch only (short vs long)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value) )
+print(f2c_nosw)
+
+## (not in paper) switch only 
+f2c_sw = fig2cstats %>% 
+  filter(switch_cond == 'sw1')%>% ## switch only
+  spread(delay, pt_mean_err)%>%
+  do({ttest = broom::tidy(t.test(.$short, .$long, paired = TRUE))
+    cd = effectsize::cohens_d(.$short, .$long, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("switch only (short vs long)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value) )
+print(f2c_sw)
+
+
+
+ #### COST (bottom panel)
+fig2cb_cost = fig2cstats %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  mutate(cost = sw1 - sw0) %>%  ## cost = switch - noswitch
+  select(id, delay, cost) %>%
+  spread(delay, cost) %>%
+  do({ttest = broom::tidy(t.test(.$short, .$long, paired = TRUE))
+    cd = effectsize::cohens_d(.$short, .$long, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Delay Switch Cost"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig2cb_cost)
+ 
+
+```
+

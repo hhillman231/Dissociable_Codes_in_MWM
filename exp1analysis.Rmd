@@ -1,0 +1,308 @@
+---
+title: "experiment 1 stats and figures"
+output: html_document
+date: "2023-10-16"
+---
+
+```{r setup, include=FALSE}
+## packages
+library(tidyverse)
+library(effectsize)
+library(broom)
+
+## load data
+data =  read_csv('./exp1.csv')
+
+
+
+## helper function for significance stars
+sig_stars = function(p) {
+    if (p <= 0.005) {
+      stars = 3
+    } else if (p <= 0.01) {
+      stars = 2
+    } else if (p <= 0.05) {
+      stars = 1
+    } else {
+      stars = 0
+    }
+  return(stars)
+}
+
+
+################ image formatting ##############
+## for testing/changing formatting, see block at the end of this script 
+
+## colors
+sns_light = c("#8DBAB4", "#E8A896") 
+sns_dark = c("#5E8B8A", "#BF7666")
+# sns_colors = c("#76a39f","#e39784") #d48f7e
+sns_colors = c("#00B3A1","#F9A900" )
+combo_color = "#395FFF" #"#B9A8CD"
+combo_dark = "#395FFF" #"#8E809D" #"#b72ece"
+double_combo = c("#AFA7DF", "#9D758B" )
+lines = "#766B83"
+washcolors =c("#74A4C9", "#DEA278", "#699E9B", "#B55E52")
+ndot_colors = c("#FF7D62", "#BC63E2")
+
+
+## size
+img_w = 5
+img_h = 5
+ln_size = 1
+pt_size = 3
+ax_size = 0.5
+err_size = 1
+err_width = 0
+err_alpha = 1
+pd = position_dodge(width = 0.15)
+
+## shapes
+ss_shapes = c(1,16)
+
+## theme
+mytheme = theme(
+                text = element_text(family = "Arial", size = 18),
+                aspect.ratio = 9/10,
+                plot.title = element_text(hjust = 0.5),
+                panel.background = element_rect("transparent"),
+                panel.grid.major = element_blank(),
+                panel.grid.minor= element_blank(),
+                axis.ticks = element_line(size = ax_size),
+                axis.ticks.length = unit(ax_size, "cm"),
+                axis.text = element_text(size = 18, color = "black"),
+                axis.line.x.bottom = element_line(size = ax_size, color = "black"),
+                axis.line.y = element_line(size = ax_size, color = "black"),
+                legend.position = "none"
+                )
+
+
+
+```
+
+
+
+Overall Stats (not spec. to figures)
+```{r overall switch cost (paper)}
+
+## SETSIZE EFFECT (collapsed over switch condition)
+ss_err = data %>%
+  mutate(setsize = paste0('ss', setsize)) %>%
+  group_by(id, setsize) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(setsize,  pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$ss4, .$ss1, paired = TRUE))
+    cd = effectsize::cohens_d(.$ss4, .$ss1, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("effect of setsize"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d )
+print(ss_err)
+
+
+#### PROACTIVE INTERFERENCE
+pro_int = data %>%
+  mutate(setsize = ifelse(setsize == 1, 'ss1', 'ss4')) %>% 
+  mutate(recall_move = paste0('re', recall_move)) %>%
+  mutate(combo_cond = paste0(setsize, recall_move)) %>%
+  filter(combo_cond == 'ss1re1' | combo_cond == 'ss4re4') %>%
+  group_by(id, setsize) %>% ## we don't care about switch cond here
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(setsize, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$ss4, .$ss1, paired = TRUE))
+    cd = effectsize::cohens_d(.$ss4, .$ss1, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 1 & Recall 4 of Setsize 4"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(pro_int)
+
+## VARIABLE ERROR ACROSS SUBJECTS (DISPERSION)
+var_err = data %>% 
+  mutate(norm_x = pt_x - targ_x, norm_y = pt_y - targ_y) %>% 
+  mutate(cent_x = mean(norm_x), cent_y = mean(norm_y)) %>% 
+  mutate(roid_dist = sqrt((norm_x - cent_x)^2 + (norm_y - cent_y)^2)) %>% 
+  group_by(id) %>%
+  summarize(mean_roid_err = mean(roid_dist), mean_euc_err = mean(dist_err)) 
+
+cor.test(var_err$mean_roid_err, var_err$mean_euc_err, method = "pearson")
+fishers_z <- atanh(cor(var_err$mean_roid_err, var_err$mean_euc_err, method = "pearson"))
+print(fishers_z)
+
+```
+
+Figure 2a - error 
+```{r Figure 2A (top) - error}
+
+## within pt
+fig2a = data %>% 
+  group_by(id, setsize, recall_move, switch_hands) %>%                           
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop')
+
+## across pt 
+fig2a = fig2a %>% 
+  group_by(setsize, recall_move, switch_hands) %>%                        
+  summarize(mean_err = mean(pt_mean_err), n = n(), sd = sd(pt_mean_err), .groups = 'drop')
+fig2a$sem = fig2a$sd / sqrt( fig2a$n)
+
+## main plot 
+ss2atop = ggplot(data = fig2a, aes( x = recall_move, y = mean_err,
+                                    color = factor(switch_hands),
+                                    shape = factor(setsize),
+                                    )) +
+        geom_line(size = ln_size, position = pd)  +
+        geom_point(size = pt_size, position = pd) +
+        scale_shape_manual(values = ss_shapes) +
+        scale_color_manual(values = sns_colors)+
+        # scale_y_continuous(breaks = seq(3,6, by = 1)) +
+        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
+        scale_y_continuous(limits = c(2.5,6.5), breaks = c(3,4,5,6)) +
+        geom_errorbar(aes(ymin = mean_err - sem,
+                        ymax = mean_err + sem),
+                        size = ln_size, width = err_width, position = pd) +
+        labs(
+          y = "Error \n (Distance from target, cm) \n", 
+          x = "\n Movement recalled ") + 
+        mytheme 
+
+ggsave(file= '../all_plots/ss2atop.svg', plot = ss2atop)
+```
+
+```{r Figure 2A (bottom) - cost}
+
+## within pt
+fig2acost = data %>% 
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
+  group_by(id, setsize, recall_move, switch_cond) %>%                           
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>% 
+  mutate(cost = switch - noswitch) %>% 
+  select(id, setsize, recall_move, cost)
+
+## across pt
+fig2acost = fig2acost %>% 
+  group_by(setsize, recall_move) %>%
+  summarize(mean_cost = mean(cost), sd = sd(cost), n = n()) %>% 
+  mutate(sem = sd/ sqrt(n))
+
+
+## main plot
+ss2abottom = ggplot(data = fig2acost, aes( x = recall_move, y = mean_cost, shape = factor(setsize))) +
+        geom_hline(yintercept=0, linetype="dashed", 
+                          color = "grey", size=ln_size/2) + 
+        geom_line(size = ln_size, position = pd, color = combo_dark)  +
+        geom_point(size = pt_size, position = pd, color = combo_dark) +
+        scale_color_manual(values = combo_dark) +
+        scale_shape_manual(values = ss_shapes) +
+        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
+        scale_y_continuous(limits = c(-1,2.3), breaks = c(-1, 0,1,2)) +
+        geom_errorbar(aes(ymin = mean_cost - sem,
+                          ymax = mean_cost + sem),
+                          size = ln_size, width = err_width, position = pd, color = combo_dark) +
+        labs(
+          y = "Switch Cost \n (Switch - No-switch, cm) \n", 
+          x = "\n Movement recalled") + 
+        mytheme 
+
+ggsave(file= '../all_plots/ss2abottom.svg', plot = ss2abottom)
+
+```
+
+```{r Stats and Stars 2A }
+
+## df setup 
+fig2astats = data %>% 
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(setsize = ifelse(setsize == 1, 'ss1', 'ss4')) %>%
+  mutate(recall_move = paste0('re', recall_move)) %>%
+  group_by(id, switch_cond, setsize, recall_move) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop')
+
+#####  NO SWITCH - SWITCH for each recall/setsize (stars in graph above) ######
+
+## ss1
+ss1 = fig2astats %>%
+  filter(setsize == 'ss1') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 1 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss1)
+
+
+## ss4, overall. ### NO 
+ss4 = data %>%  ## starting from data bc we want to collapse over all recall conditions (df)
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(setsize = ifelse(setsize == 1, 'ss1', 'ss4')) %>%
+  filter(setsize == 'ss4') %>% 
+  group_by(id, switch_cond, setsize) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 4 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss4)
+
+
+
+##### POSITIONS IN SS4
+
+## ss4, recall 1
+ss4re1 = fig2astats %>%
+  filter(setsize == 'ss4' & recall_move == 're1') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 4, Recall move 1 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss4re1)
+
+
+## ss4, recall 2
+ss4re2 = fig2astats %>%
+  filter(setsize == 'ss4' & recall_move == 're2') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 4, Recall move 2 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss4re2)
+
+
+## ss4, recall 3
+ss4re3 = fig2astats %>%
+  filter(setsize == 'ss4' & recall_move == 're3') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 4, Recall move 3 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss4re3)
+
+## ss4, recall 4
+ss4re4 = fig2astats %>%
+  filter(setsize == 'ss4' & recall_move == 're4') %>% 
+  spread(switch_cond, pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Setsize 4, Recall move 4 "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(ss4re4)
+
+#####  COST ANOVA BASED ON POSITION (bottom panel)  ######
+
+fig2a_costAOV = data %>% ## start w data bc you need recall move as a number not character
+  filter(setsize == 4) %>%
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, recall_move, switch_cond) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond, pt_mean_err) %>%
+  mutate(cost = sw1 - sw0) %>%
+  mutate(id = factor(id)) %>% 
+  select(id, recall_move, cost)
+
+fig2a_costAOV = aov(cost ~ recall_move + Error(id/recall_move), data = fig2a_costAOV)
+print(summary(fig2a_costAOV))
+
+fig2a_costAOV_eta = eta_squared(fig2a_costAOV)
+print(fig2a_costAOV_eta)
+
+```

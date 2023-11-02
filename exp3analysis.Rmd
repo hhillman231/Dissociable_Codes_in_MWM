@@ -1,0 +1,361 @@
+---
+title: "experiment 3 analysis"
+output: html_document
+date: "2023-10-16"
+---
+
+```{r setup, include=FALSE}
+## packages
+library(tidyverse)
+library(effectsize)
+library(broom)
+library(circular)
+library(BayesFactor)
+
+## load data
+data =  read_csv('./exp3.csv')
+
+
+## helper function for significance stars
+sig_stars = function(p) {
+    if (p <= 0.005) {
+      stars = 3
+    } else if (p <= 0.01) {
+      stars = 2
+    } else if (p <= 0.05) {
+      stars = 1
+    } else {
+      stars = 0
+    }
+  return(stars)
+}
+
+
+################ image formatting ##############
+## for testing/changing formatting, see block at the end of this script 
+
+## colors
+sns_light = c("#8DBAB4", "#E8A896") 
+sns_dark = c("#5E8B8A", "#BF7666")
+# sns_colors = c("#76a39f","#e39784") #d48f7e
+sns_colors = c("#00B3A1","#F9A900" )
+combo_color = "#395FFF" #"#B9A8CD"
+combo_dark = "#395FFF" #"#8E809D" #"#b72ece"
+double_combo = c("#AFA7DF", "#9D758B" )
+lines = "#766B83"
+washcolors =c("#74A4C9", "#DEA278", "#699E9B", "#B55E52")
+ndot_colors = c("#FF7D62", "#BC63E2")
+
+
+## size
+img_w = 5
+img_h = 5
+ln_size = 1
+pt_size = 3
+ax_size = 0.5
+err_size = 1
+err_width = 0
+err_alpha = 1
+pd = position_dodge(width = 0.15)
+
+## shapes
+ss_shapes = c(1,16)
+
+## theme
+mytheme = theme(
+                text = element_text(family = "Arial", size = 18),
+                aspect.ratio = 9/10,
+                plot.title = element_text(hjust = 0.5),
+                panel.background = element_rect("transparent"),
+                panel.grid.major = element_blank(),
+                panel.grid.minor= element_blank(),
+                axis.ticks = element_line(size = ax_size),
+                axis.ticks.length = unit(ax_size, "cm"),
+                axis.text = element_text(size = 18, color = "black"),
+                axis.line.x.bottom = element_line(size = ax_size, color = "black"),
+                axis.line.y = element_line(size = ax_size, color = "black"),
+                legend.position = "none"
+                )
+
+
+```
+
+vsp load x vsp recall (precision)
+```{r Figure 3B}
+
+## within pt
+fig3b = data %>% 
+  group_by(id, vsp_setsize) %>% 
+  summarize(pt_prec = 1/sd.circular(vsp_ang_err*(pi/180)), .groups = 'drop')
+
+## across pt 
+fig3b = fig3b %>%
+  group_by(vsp_setsize) %>%
+  summarize(mean_prec = mean(pt_prec), sd = sd(pt_prec), n = n(), .groups = 'drop') %>% 
+  mutate(sem = sd/ sqrt(n))
+
+## main plot
+vsp3b = ggplot(data = fig3b, aes(x = factor(vsp_setsize), y = mean_prec, fill = factor(vsp_setsize))) + 
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  scale_fill_manual(values = ndot_colors) + 
+  geom_errorbar(aes(ymin = mean_prec - sem,
+                    ymax = mean_prec + sem),
+                    size = ln_size, width = err_width, position = position_dodge(0.9)) +
+  labs(
+    # title = "Visual Target Recall \n Angular Precision \n",
+    y = "Mean Angular Precision \n 1/cicular sd \n",
+    x = "\n Number of Visual Targets") +
+  mytheme
+
+
+ggsave(file= '../all_plots/vsp3b.svg', plot = vsp3b)
+
+```
+
+```{r Stats and Stars 3B}
+
+fig3bstats = data %>% 
+  mutate(setsize = paste0('n', vsp_setsize)) %>% 
+  group_by(id, setsize) %>%
+  summarize(pt_prec = 1/sd.circular(vsp_ang_err*(pi/180)), .groups = 'drop') %>%
+  spread(setsize, pt_prec) %>%
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Load effects on VSP recall precision"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3bstats)
+
+
+```
+
+vsp load x motor recall (distance)
+```{r Figure 3C}
+
+## within pt
+fig3c = data %>% 
+  group_by(id, switch_hands, vsp_setsize) %>% 
+  summarize(pt_mean = mean(dist_err), .groups = 'drop')
+
+## across pt 
+fig3c = fig3c %>%
+  group_by(vsp_setsize, switch_hands) %>%
+  summarize(mean_err = mean(pt_mean), sd = sd(pt_mean), n = n(), .groups = 'drop') %>% 
+  mutate(sem = sd/ sqrt(n))
+
+## main plot
+vsp3c = ggplot(data = fig3c, aes(x = vsp_setsize, y = mean_err, color = factor(switch_hands))) + 
+  geom_line(size = ln_size, position = pd)  +
+  geom_point(size = pt_size, position = pd) +
+  scale_color_manual(values = sns_colors) +
+  geom_errorbar(aes(ymin = mean_err - sem,
+                    ymax = mean_err + sem),
+                    size = ln_size, width = err_width, position = pd) +
+  scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+  # scale_y_continuous(limits = c(2.9,4.6), breaks = c(3, 3.5, 4, 4.5)) +
+  scale_y_continuous(limits = c(3.1,5), breaks = c(3.2, 3.7, 4.2, 4.7)) +
+  labs(
+    # title = "Movement Error x Visual Task SS ",
+    y = "Movement Error \n (Distance from target, cm) \n",
+    x = "\n Number of Visual Targets") +
+  mytheme
+
+ggsave(file= '../all_plots/vsp3c.svg', plot = vsp3c)
+
+vsp3c
+```
+
+```{r Stats and Stars 3C}
+
+## df setup
+fig3cstats = data %>% 
+  mutate(setsize = paste0('n', vsp_setsize)) %>% 
+  mutate(switch_cond = paste0('sw', switch_hands)) %>% 
+  group_by(id, switch_cond, setsize) %>% 
+  summarize(pt_mean = mean(dist_err), .groups = 'drop')
+
+
+#####  NO SWITCH - SWITCH  (stars in graph above) ######
+fig3c_n1 = fig3cstats %>% 
+  filter(setsize == 'n1') %>% ## 1 vsp target only
+  spread(switch_cond, pt_mean) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("1 VSP target  "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3c_n1)
+
+
+fig3c_n3 = fig3cstats %>% 
+  filter(setsize == 'n3') %>% ## 3 vsp targets only
+  spread(switch_cond, pt_mean) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("3 VSP target  "), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3c_n3)
+
+
+#####  1 vs 3 VSP TARGETS ######
+fig3c_noswitch = fig3cstats %>% 
+  filter(switch_cond == 'sw0') %>% ## noswitch trials only
+  spread(setsize, pt_mean) %>% 
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Noswitch (1 - 3 VSP targets)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3c_noswitch)  
+
+
+fig3c_switch = fig3cstats %>% 
+  filter(switch_cond == 'sw1') %>% ## noswitch trials only
+  spread(setsize, pt_mean) %>% 
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Switch (1 - 3 VSP targets)"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3c_switch)    
+
+
+#### ANOVA ######
+
+fig3c_aov = fig3cstats %>% 
+  mutate(id = factor(id))
+
+fig3c_aov = aov(pt_mean ~ switch_cond * setsize + Error(id/(switch_cond * setsize)), data = fig3c_aov)
+print(summary(fig3c_aov))
+
+fig3c_aov_eta = eta_squared(fig3c_aov)
+print(fig3c_aov_eta)
+
+```
+
+vsp load x motor switch cost (distance error)
+```{r Figure 3D}
+
+## within pt
+fig3d = data %>% 
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>% 
+  group_by(id, switch_cond, vsp_setsize) %>% 
+  summarize(pt_mean = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean) %>%
+  mutate(cost = switch - noswitch ) %>% 
+  select(id, vsp_setsize, cost)
+
+
+## across pt 
+fig3d = fig3d %>%
+  group_by(vsp_setsize) %>%
+  summarize(mean_cost = mean(cost), sd = sd(cost), n = n(), .groups = 'drop') %>%
+  mutate(sem = sd/ sqrt(n))
+
+## main plot
+vsp3d = ggplot(data = fig3d, aes(x = vsp_setsize, y = mean_cost)) +
+  geom_line(size = ln_size, position = pd, color = combo_dark)  +
+  geom_point(size = pt_size, position = pd, color = combo_dark) +
+  scale_color_manual(values = sns_colors) +
+  geom_errorbar(aes(ymin = mean_cost - sem,
+                    ymax = mean_cost + sem),
+                    size = ln_size, width = err_width, position = pd, color = combo_dark) +
+  scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+  scale_y_continuous(limits = c(0.5,1.3), breaks = c(0.6, 0.8, 1.0, 1.2)) +
+  labs(
+    # title = "Movement recall switch cost",
+    y = "Switch Cost \n (Switch - No-switch, cm) \n",
+    x = "\n Number of Visual Targets") +
+  mytheme
+vsp3d
+ggsave(file= '../all_plots/vsp3d.svg', plot = vsp3d)
+```
+
+```{r Stats and Stars 3D}
+
+## NORMAL T-TEST
+fig3dstats = data %>%
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(vsp_setsize = paste0('n', vsp_setsize)) %>%
+  group_by(id, switch_cond, vsp_setsize) %>%
+  summarize(pt_mean = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond, pt_mean) %>%
+  mutate(cost = sw1 - sw0 ) %>%
+  select(id, vsp_setsize, cost) %>% 
+  spread(vsp_setsize, cost) %>% 
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Motor Error Switch Cost"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3dstats)
+
+
+## BAYES FACTOR ANALYSIS 
+fig3dbayes = data %>%
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(vsp_setsize = paste0('n', vsp_setsize)) %>%
+  group_by(id, switch_cond, vsp_setsize) %>%
+  summarize(pt_mean = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond, pt_mean) %>%
+  mutate(cost = sw1 - sw0) %>%
+  select(id, vsp_setsize, cost) %>%
+  spread(vsp_setsize, cost)
+
+fig3dbayes = ttestBF(fig3dbayes$n1, fig3dbayes$n3, paired = TRUE)
+print(summary(fig3dbayes))
+
+```
+
+
+vsp load x motor switch cost (angular error)
+```{r Figure 3E}
+## within pt
+fig3e = data %>% 
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>% 
+  group_by(id, switch_cond, vsp_setsize) %>% 
+  summarize(pt_ang_mean = mean(sd.circular(ang_err*(pi/180))), .groups = 'drop') %>% 
+  spread(switch_cond, pt_ang_mean) %>%
+  mutate(cost = switch - noswitch ) %>% 
+  select(id, vsp_setsize, cost)
+
+## across pt 
+fig3e = fig3e %>%
+  group_by(vsp_setsize) %>%
+  summarize(mean_ang_cost = mean(cost), sd = sd(cost), n = n(), .groups = 'drop') %>%
+  mutate(sem = sd/ sqrt(n))
+
+## main plot
+vsp3e = ggplot(data = fig3e, aes(x = vsp_setsize, y = mean_ang_cost)) +
+  geom_line(size = ln_size, position = pd, color = combo_dark)  +
+  geom_point(size = pt_size, position = pd, color = combo_dark) +
+  scale_color_manual(values = sns_colors) +
+  geom_errorbar(aes(ymin = mean_ang_cost - sem,
+                    ymax = mean_ang_cost + sem),
+                    size = ln_size, width = err_width, position = pd, color = combo_dark) +
+  scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
+  scale_y_continuous(limits = c(0.02,0.13), breaks = c(0.03,0.06,0.09, 0.12)) +
+  labs(
+    # title = "Movement Angle Switch Cost",
+    y = "Movement Circular SD\n",
+    x = "\n Number of Visual Targets" ) +
+  mytheme
+
+vsp3e
+ggsave(file= '../all_plots/vsp3e.svg', plot = vsp3e)
+
+```
+
+```{r Stats and Stars 3E}
+## within pt
+fig3estats = data %>% 
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  mutate(vsp_setsize = paste0('n', vsp_setsize)) %>%
+  group_by(id, switch_cond, vsp_setsize) %>% 
+  summarize(pt_ang_mean = mean(sd.circular(ang_err*(pi/180))), .groups = 'drop') %>% 
+  spread(switch_cond, pt_ang_mean) %>%
+  mutate(cost = sw1 - sw0 ) %>% 
+  select(id, vsp_setsize, cost) %>%
+  spread(vsp_setsize, cost) %>%
+  do({ttest = broom::tidy(t.test(.$n1, .$n3, paired = TRUE))
+    cd = effectsize::cohens_d(.$n1, .$n3, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("Motor Error Switch Cost"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(fig3estats)
+
+```
