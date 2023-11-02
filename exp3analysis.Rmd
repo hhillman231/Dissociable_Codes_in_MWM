@@ -14,6 +14,7 @@ library(BayesFactor)
 
 ## load data
 data =  read_csv('./exp3.csv')
+save = FALSE ## set to TRUE if you want to output a folder with all the plots from the paper
 
 
 ## helper function for significance stars
@@ -107,8 +108,8 @@ vsp3b = ggplot(data = fig3b, aes(x = factor(vsp_setsize), y = mean_prec, fill = 
     x = "\n Number of Visual Targets") +
   mytheme
 
-
-ggsave(file= '../all_plots/vsp3b.svg', plot = vsp3b)
+vsp3b
+if (save == TRUE) { ggsave(file= '../all_plots/vsp3b.svg', plot = vsp3b) }
 
 ```
 
@@ -159,7 +160,7 @@ vsp3c = ggplot(data = fig3c, aes(x = vsp_setsize, y = mean_err, color = factor(s
     x = "\n Number of Visual Targets") +
   mytheme
 
-ggsave(file= '../all_plots/vsp3c.svg', plot = vsp3c)
+if (save == TRUE) {ggsave(file= '../all_plots/vsp3c.svg', plot = vsp3c)}
 
 vsp3c
 ```
@@ -259,12 +260,15 @@ vsp3d = ggplot(data = fig3d, aes(x = vsp_setsize, y = mean_cost)) +
   scale_x_continuous(limits = c(0.8,3.2), breaks = c(1,3)) +
   scale_y_continuous(limits = c(0.5,1.3), breaks = c(0.6, 0.8, 1.0, 1.2)) +
   labs(
-    # title = "Movement recall switch cost",
+    # title = "Movement recall error switch cost",
     y = "Switch Cost \n (Switch - No-switch, cm) \n",
     x = "\n Number of Visual Targets") +
   mytheme
+
 vsp3d
-ggsave(file= '../all_plots/vsp3d.svg', plot = vsp3d)
+
+if (save == TRUE) {ggsave(file= '../all_plots/vsp3d.svg', plot = vsp3d)}
+
 ```
 
 ```{r Stats and Stars 3D}
@@ -337,7 +341,7 @@ vsp3e = ggplot(data = fig3e, aes(x = vsp_setsize, y = mean_ang_cost)) +
   mytheme
 
 vsp3e
-ggsave(file= '../all_plots/vsp3e.svg', plot = vsp3e)
+if (save == TRUE) {ggsave(file= '../all_plots/vsp3e.svg', plot = vsp3e)}
 
 ```
 

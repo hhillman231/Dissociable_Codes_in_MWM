@@ -15,7 +15,7 @@ library(broom)
 
 ## load data
 data =  read_csv('./exp2.csv')
-
+save = FALSE ## set to TRUE if you want to output a folder with all the plots from the paper
 
 
 ## helper function for significance stars
@@ -132,7 +132,7 @@ fig2b = fig2b %>%
 fig2b$sem = fig2b$sd/sqrt(fig2b$n) ## standard error
 
 ## main plot
-del2btop = ggplot(data = fig2b, aes( x = n_moves, y = mean_err, color = factor(switch_hands))) +
+irr2btop = ggplot(data = fig2b, aes( x = n_moves, y = mean_err, color = factor(switch_hands))) +
         geom_line(size = ln_size, position = pd)  +
         geom_point(size = pt_size, position = pd) +
         geom_errorbar(aes(ymin = mean_err - sem,
@@ -146,11 +146,9 @@ del2btop = ggplot(data = fig2b, aes( x = n_moves, y = mean_err, color = factor(s
           y = "Error \n (Distance from target, cm) \n",
           x = "\n Number of irrelevant movements ") +
         mytheme
+irr2btop
 
-
-ggsave(file= '../all_plots/del2btop.svg', plot = del2btop)
-
-del2btop
+if (save == TRUE) { ggsave(file= '../all_plots/irr2btop.svg', plot = irr2btop)}
 
 ```
 
@@ -174,7 +172,7 @@ fig2bcost = fig2bcost %>%
 fig2bcost$sem = fig2bcost$sd/ sqrt(fig2bcost$n)
 
 ## main plot
-del2bbottom = ggplot(data = fig2bcost, aes( x = n_moves, y = mean_cost)) +
+irr2bbottom = ggplot(data = fig2bcost, aes( x = n_moves, y = mean_cost)) +
         geom_line(size = ln_size, position = pd, color = combo_dark)  +
         geom_point(size = pt_size, position = pd, color = combo_dark) +
         geom_errorbar(aes(ymin = mean_cost - sem,
@@ -203,7 +201,8 @@ fig2bcost_stars = data %>%
   summarize(condition = paste0("irr mvmt sw cost (sw v nosw)"), t = statistic, p = p.value, stars = sig_stars(p.value) )
 print(fig2bcost_stars)
   
-ggsave(file= '../all_plots/del2bbottom.svg', plot = del2bbottom)
+irr2bbottom 
+if (save == TRUE) { ggsave(file= '../all_plots/irr2bbottom.svg', plot = irr2bbottom )}
 
 ```
 
@@ -313,9 +312,9 @@ del2ctop = ggplot(data = fig2c, aes( x = delay, y = mean_err, color = factor(swi
           x = "\n Short or long delay (seconds)") +
         mytheme
 
-ggsave(file= '../all_plots/del2ctop.svg', plot = del2ctop)
-
 del2ctop
+
+if (save == TRUE) { ggsave(file= '../all_plots/del2ctop.svg', plot = del2ctop)}
 
 ```
 
@@ -352,8 +351,10 @@ del2cbottom = ggplot(data = fig2ccost, aes( x = delay, y = mean_cost)) +
           x = "\n Delay") +
         mytheme
 
-ggsave(file= '../all_plots/del2cbottom.svg', plot = del2cbottom)
+
 del2cbottom
+
+if (save == TRUE) { ggsave(file= '../all_plots/del2cbottom.svg', plot = del2cbottom)}
 ```
 
 ```{r Stats and Stars 2C}

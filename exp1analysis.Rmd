@@ -12,7 +12,7 @@ library(broom)
 
 ## load data
 data =  read_csv('./exp1.csv')
-
+save = FALSE ## set to TRUE if you want to output a folder with all the plots from the paper
 
 
 ## helper function for significance stars
@@ -150,7 +150,6 @@ ss2atop = ggplot(data = fig2a, aes( x = recall_move, y = mean_err,
         geom_point(size = pt_size, position = pd) +
         scale_shape_manual(values = ss_shapes) +
         scale_color_manual(values = sns_colors)+
-        # scale_y_continuous(breaks = seq(3,6, by = 1)) +
         scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
         scale_y_continuous(limits = c(2.5,6.5), breaks = c(3,4,5,6)) +
         geom_errorbar(aes(ymin = mean_err - sem,
@@ -160,8 +159,9 @@ ss2atop = ggplot(data = fig2a, aes( x = recall_move, y = mean_err,
           y = "Error \n (Distance from target, cm) \n", 
           x = "\n Movement recalled ") + 
         mytheme 
+ss2atop
 
-ggsave(file= '../all_plots/ss2atop.svg', plot = ss2atop)
+if (save == TRUE) { ggsave(file= '../all_plots/ss2atop.svg', plot = ss2atop)}
 ```
 
 ```{r Figure 2A (bottom) - cost}
@@ -200,7 +200,8 @@ ss2abottom = ggplot(data = fig2acost, aes( x = recall_move, y = mean_cost, shape
           x = "\n Movement recalled") + 
         mytheme 
 
-ggsave(file= '../all_plots/ss2abottom.svg', plot = ss2abottom)
+ss2abottom
+if (save == TRUE) { ggsave(file= '../all_plots/ss2abottom.svg', plot = ss2abottom)}
 
 ```
 
