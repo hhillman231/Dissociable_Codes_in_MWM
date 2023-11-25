@@ -1,12 +1,11 @@
 ---
-title: "experiment 2 stats and figures"
+title: "experiment 2 analysis"
 output: html_document
 date: "2023-10-15"
 ---
 
+Setup
 ```{r setup, include=FALSE}
-## test ##
-
 ## packages
 library(tidyverse)
 library(plotrix)
@@ -85,40 +84,11 @@ mytheme = theme(
 
 ```
 
-Overall Switch Effect (regardless of size)
-```{r overall switch effect (paper) }
 
-# interfering movements condition
-irr_mvmt_err = data %>%
-  filter(type == 1) %>% ## interference conditions only
-  mutate(switch_cond = paste0('sw', switch_hands)) %>%
-  group_by(id, switch_cond) %>%
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
-  spread(switch_cond,  pt_mean_err) %>%
-  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
-    cd = cohens_d(.$sw1, .$sw0, paired = TRUE)
-    bind_cols(ttest, cd)}) %>%
-  summarize(condition = paste0("irr mvmts"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
-print(irr_mvmt_err)
+## Irrelevant Movement Trials
 
-## delay condition
-delay_err = data %>% 
-  filter(type == 0) %>% ## delay conditions only
-  mutate(switch_cond = paste0('sw', switch_hands)) %>%
-  group_by(id, switch_cond) %>%
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
-  spread(switch_cond,  pt_mean_err) %>% 
-  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
-    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
-    bind_cols(ttest, cd)}) %>%
-  summarize(condition = paste0("delay"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
-print(delay_err)
-
-
-```
-
-Irrelevant Movement Trials
-```{r Figure 2B (top) - error (no switch vs switch)}
+Figure 2b - Error (top)
+```{r figure 2b top error}
 
 ## within pt
 fig2b = data %>% 
@@ -154,7 +124,8 @@ if (save == TRUE) { ggsave(file= '../all_plots/irr2btop.svg', plot = irr2btop)}
 
 ```
 
-```{r Figure 2B (bottom) - cost (switch - noswitch)}
+Figure 2b - Switch Cost (bottom)
+```{r figure 2b bottom cost}
 
 ## within pt
 fig2bcost = data %>% 
@@ -208,7 +179,23 @@ if (save == TRUE) { ggsave(file= '../all_plots/irr2bbottom.svg', plot = irr2bbot
 
 ```
 
-```{r Stats and Stars 2B}
+Irrelevant Mvmt Stats
+```{r figure 2b stats}
+
+# overall switch effect (regardless of size)
+irr_mvmt_err = data %>%
+  filter(type == 1) %>% ## interference conditions only
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, switch_cond) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond,  pt_mean_err) %>%
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("irr mvmts"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(irr_mvmt_err)
+
+
 
 ## df setup 
 fig2bstats = data %>% 
@@ -280,9 +267,10 @@ print(fig2bb_cost)
 ```
 
 
-Delay Trials
+## Delay Trials
 
-```{r Figure 2C (top) - error (no switch vs switch)}
+Figure 2c - Error (top)
+```{r figure 2c top error}
 
 ## within pt
 fig2c = data %>% 
@@ -320,7 +308,8 @@ if (save == TRUE) { ggsave(file= '../all_plots/del2ctop.svg', plot = del2ctop)}
 
 ```
 
-```{r Figure 2C (bottom) - cost (switch - noswitch)}
+Figure 2c - Switch Cost (bottom)
+```{r figure 2C bottom cost}
 
 ## within pt
 fig2ccost = data %>% 
@@ -359,7 +348,21 @@ del2cbottom
 if (save == TRUE) { ggsave(file= '../all_plots/del2cbottom.svg', plot = del2cbottom)}
 ```
 
-```{r Stats and Stars 2C}
+Delay Stats
+```{r figure 2c stats}
+
+## overall switch effect (regardless of size)
+delay_err = data %>% 
+  filter(type == 0) %>% ## delay conditions only
+  mutate(switch_cond = paste0('sw', switch_hands)) %>%
+  group_by(id, switch_cond) %>%
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
+  spread(switch_cond,  pt_mean_err) %>% 
+  do({ttest = broom::tidy(t.test(.$sw1, .$sw0, paired = TRUE))
+    cd = effectsize::cohens_d(.$sw1, .$sw0, paired = TRUE)
+    bind_cols(ttest, cd)}) %>%
+  summarize(condition = paste0("delay"), df = parameter, t = statistic, p = p.value, stars = sig_stars(p.value), cohens_d = Cohens_d)
+print(delay_err)
 
 ## dataframe setup 
 fig2cstats = data %>% 

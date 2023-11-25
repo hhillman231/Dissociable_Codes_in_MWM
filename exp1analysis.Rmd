@@ -1,9 +1,10 @@
 ---
-title: "experiment 1 stats and figures"
+title: "experiment 1 analysis"
 output: html_document
 date: "2023-10-16"
 ---
 
+Setup
 ```{r setup, include=FALSE}
 ## packages
 library(tidyverse)
@@ -80,10 +81,87 @@ mytheme = theme(
 
 ```
 
+Figure 2a - Error (top)
+```{r figure 2a top error}
+
+## within pt
+fig2a = data %>% 
+  group_by(id, setsize, recall_move, switch_hands) %>%                           
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop')
+
+## across pt 
+fig2a = fig2a %>% 
+  group_by(setsize, recall_move, switch_hands) %>%                        
+  summarize(mean_err = mean(pt_mean_err), n = n(), sd = sd(pt_mean_err), .groups = 'drop')
+fig2a$sem = fig2a$sd / sqrt( fig2a$n)
+
+## main plot 
+ss2atop = ggplot(data = fig2a, aes( x = recall_move, y = mean_err,
+                                    color = factor(switch_hands),
+                                    shape = factor(setsize),
+                                    )) +
+        geom_line(size = ln_size, position = pd)  +
+        geom_point(size = pt_size, position = pd) +
+        scale_shape_manual(values = ss_shapes) +
+        scale_color_manual(values = sns_colors)+
+        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
+        scale_y_continuous(limits = c(2.5,6.5), breaks = c(3,4,5,6)) +
+        geom_errorbar(aes(ymin = mean_err - sem,
+                        ymax = mean_err + sem),
+                        size = ln_size, width = err_width, position = pd) +
+        labs(
+          y = "Error \n (Distance from target, cm) \n", 
+          x = "\n Movement recalled ") + 
+        mytheme 
+ss2atop
+
+if (save == TRUE) { ggsave(file= '../all_plots/ss2atop.svg', plot = ss2atop)}
+```
+
+Figure 2a - Switch Cost (bottom)
+```{r figure 2a bottom}
+
+## within pt
+fig2acost = data %>% 
+  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
+  group_by(id, setsize, recall_move, switch_cond) %>%                           
+  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
+  spread(switch_cond, pt_mean_err) %>% 
+  mutate(cost = switch - noswitch) %>% 
+  select(id, setsize, recall_move, cost)
+
+## across pt
+fig2acost = fig2acost %>% 
+  group_by(setsize, recall_move) %>%
+  summarize(mean_cost = mean(cost), sd = sd(cost), n = n()) %>% 
+  mutate(sem = sd/ sqrt(n))
 
 
-Overall Stats (not spec. to figures)
-```{r overall switch cost (paper)}
+## main plot
+ss2abottom = ggplot(data = fig2acost, aes( x = recall_move, y = mean_cost, shape = factor(setsize))) +
+        geom_hline(yintercept=0, linetype="dashed", 
+                          color = "grey", size=ln_size/2) + 
+        geom_line(size = ln_size, position = pd, color = combo_dark)  +
+        geom_point(size = pt_size, position = pd, color = combo_dark) +
+        scale_color_manual(values = combo_dark) +
+        scale_shape_manual(values = ss_shapes) +
+        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
+        scale_y_continuous(limits = c(-1,2.3), breaks = c(-1, 0,1,2)) +
+        geom_errorbar(aes(ymin = mean_cost - sem,
+                          ymax = mean_cost + sem),
+                          size = ln_size, width = err_width, position = pd, color = combo_dark) +
+        labs(
+          y = "Switch Cost \n (Switch - No-switch, cm) \n", 
+          x = "\n Movement recalled") + 
+        mytheme 
+
+ss2abottom
+if (save == TRUE) { ggsave(file= '../all_plots/ss2abottom.svg', plot = ss2abottom)}
+
+```
+
+Stats
+```{r overall switch cost }
 
 ## SETSIZE EFFECT (collapsed over switch condition)
 ss_err = data %>%
@@ -127,85 +205,7 @@ print(fishers_z)
 
 ```
 
-Figure 2a - error 
-```{r Figure 2A (top) - error}
-
-## within pt
-fig2a = data %>% 
-  group_by(id, setsize, recall_move, switch_hands) %>%                           
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop')
-
-## across pt 
-fig2a = fig2a %>% 
-  group_by(setsize, recall_move, switch_hands) %>%                        
-  summarize(mean_err = mean(pt_mean_err), n = n(), sd = sd(pt_mean_err), .groups = 'drop')
-fig2a$sem = fig2a$sd / sqrt( fig2a$n)
-
-## main plot 
-ss2atop = ggplot(data = fig2a, aes( x = recall_move, y = mean_err,
-                                    color = factor(switch_hands),
-                                    shape = factor(setsize),
-                                    )) +
-        geom_line(size = ln_size, position = pd)  +
-        geom_point(size = pt_size, position = pd) +
-        scale_shape_manual(values = ss_shapes) +
-        scale_color_manual(values = sns_colors)+
-        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
-        scale_y_continuous(limits = c(2.5,6.5), breaks = c(3,4,5,6)) +
-        geom_errorbar(aes(ymin = mean_err - sem,
-                        ymax = mean_err + sem),
-                        size = ln_size, width = err_width, position = pd) +
-        labs(
-          y = "Error \n (Distance from target, cm) \n", 
-          x = "\n Movement recalled ") + 
-        mytheme 
-ss2atop
-
-if (save == TRUE) { ggsave(file= '../all_plots/ss2atop.svg', plot = ss2atop)}
-```
-
-```{r Figure 2A (bottom) - cost}
-
-## within pt
-fig2acost = data %>% 
-  mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>%
-  group_by(id, setsize, recall_move, switch_cond) %>%                           
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
-  spread(switch_cond, pt_mean_err) %>% 
-  mutate(cost = switch - noswitch) %>% 
-  select(id, setsize, recall_move, cost)
-
-## across pt
-fig2acost = fig2acost %>% 
-  group_by(setsize, recall_move) %>%
-  summarize(mean_cost = mean(cost), sd = sd(cost), n = n()) %>% 
-  mutate(sem = sd/ sqrt(n))
-
-
-## main plot
-ss2abottom = ggplot(data = fig2acost, aes( x = recall_move, y = mean_cost, shape = factor(setsize))) +
-        geom_hline(yintercept=0, linetype="dashed", 
-                          color = "grey", size=ln_size/2) + 
-        geom_line(size = ln_size, position = pd, color = combo_dark)  +
-        geom_point(size = pt_size, position = pd, color = combo_dark) +
-        scale_color_manual(values = combo_dark) +
-        scale_shape_manual(values = ss_shapes) +
-        scale_x_continuous(limits = c(0.8,4.2), breaks = c(1,2,3,4)) +
-        scale_y_continuous(limits = c(-1,2.3), breaks = c(-1, 0,1,2)) +
-        geom_errorbar(aes(ymin = mean_cost - sem,
-                          ymax = mean_cost + sem),
-                          size = ln_size, width = err_width, position = pd, color = combo_dark) +
-        labs(
-          y = "Switch Cost \n (Switch - No-switch, cm) \n", 
-          x = "\n Movement recalled") + 
-        mytheme 
-
-ss2abottom
-if (save == TRUE) { ggsave(file= '../all_plots/ss2abottom.svg', plot = ss2abottom)}
-
-```
-
-```{r Stats and Stars 2A }
+```{r figure stats}
 
 ## df setup 
 fig2astats = data %>% 
@@ -305,53 +305,5 @@ print(summary(fig2a_costAOV))
 
 fig2a_costAOV_eta = eta_squared(fig2a_costAOV)
 print(fig2a_costAOV_eta)
-
-```
-
-
-```{r within switch/no switch for ss4 }
-noswitch = data %>% 
-  filter(switch_hands == 0 & setsize == 4)%>%
-  group_by(id,recall_move) %>%
-  mutate(recall_move = paste0("re",recall_move)) %>%
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>% 
-  spread(recall_move, pt_mean_err)
-
-ns_12 = t.test(noswitch$re1, noswitch$re2, paired = TRUE) 
-ns_12
-
-ns_23 = t.test(noswitch$re2, noswitch$re3, paired = TRUE) 
-ns_23
-
-ns_34 = t.test(noswitch$re3, noswitch$re4, paired = TRUE) 
-ns_34
-
-ns_14 = t.test(noswitch$re1, noswitch$re4, paired = TRUE) 
-ns_14
-
-# noswitch = data %>% 
-#   filter(switch_hands == 0 & setsize == 4)%>%
-#   group_by(id,recall_move) %>%
-#   mutate(recall_move = paste0("re",recall_move)) %>%
-#   summarize(pt_mean_err = mean(dist_err), .groups = 'drop') 
-# 
-# ggplot(data = noswitch, aes (x = recall_move, y = pt_mean_err, group = id)) + geom_point() + geom_line()
-
-switch = data %>%
-  filter(switch_hands == 1 & setsize == 4)%>%
-  group_by(id,recall_move) %>%
-  mutate(recall_move = paste0("re",recall_move)) %>%
-  summarize(pt_mean_err = mean(dist_err), .groups = 'drop') %>%
-  spread(recall_move, pt_mean_err)
-
-sw_12 = t.test(switch$re1, switch$re2, paired = TRUE)
-sw_12
-
-sw_23 = t.test(switch$re2, switch$re3, paired = TRUE)
-sw_23
-
-sw_34 = t.test(switch$re3, switch$re4, paired = TRUE)
-sw_34
-
 
 ```

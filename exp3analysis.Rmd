@@ -4,6 +4,7 @@ output: html_document
 date: "2023-10-16"
 ---
 
+Setup
 ```{r setup, include=FALSE}
 ## packages
 library(tidyverse)
@@ -81,8 +82,8 @@ mytheme = theme(
 
 ```
 
-vsp load x vsp recall (precision)
-```{r Figure 3B}
+Figure 3b - Visuospatial Load x Visuospatial Precision
+```{r figure 3b}
 
 ## within pt
 fig3b = data %>% 
@@ -113,7 +114,7 @@ if (save == TRUE) { ggsave(file= '../all_plots/vsp3b.svg', plot = vsp3b) }
 
 ```
 
-```{r Stats and Stars 3B}
+```{r figure 3b stats}
 
 fig3bstats = data %>% 
   mutate(setsize = paste0('n', vsp_setsize)) %>% 
@@ -129,8 +130,8 @@ print(fig3bstats)
 
 ```
 
-vsp load x motor recall (distance)
-```{r Figure 3C}
+Figure 3c - Visuospatial Load x Movement Recall Distance Error 
+```{r figure 3c}
 
 ## within pt
 fig3c = data %>% 
@@ -165,7 +166,7 @@ if (save == TRUE) {ggsave(file= '../all_plots/vsp3c.svg', plot = vsp3c)}
 vsp3c
 ```
 
-```{r Stats and Stars 3C}
+```{r figure 3c stats}
 
 ## df setup
 fig3cstats = data %>% 
@@ -230,8 +231,8 @@ print(fig3c_aov_eta)
 
 ```
 
-vsp load x motor switch cost (distance error)
-```{r Figure 3D}
+Figure 3d - Visuospatial Load x Movement Recall Switch Cost - Distance Error
+```{r figure 3d}
 
 ## within pt
 fig3d = data %>% 
@@ -271,7 +272,7 @@ if (save == TRUE) {ggsave(file= '../all_plots/vsp3d.svg', plot = vsp3d)}
 
 ```
 
-```{r Stats and Stars 3D}
+```{r figure 3d stats}
 
 ## NORMAL T-TEST
 fig3dstats = data %>%
@@ -307,8 +308,8 @@ print(summary(fig3dbayes))
 ```
 
 
-vsp load x motor switch cost (angular error)
-```{r Figure 3E}
+Figure 3e - Visuospatial Load x Movement Recall Switch Cost - Angular Error
+```{r figure 3e}
 ## within pt
 fig3e = data %>% 
   mutate(switch_cond = ifelse(switch_hands == 0, 'noswitch', 'switch')) %>% 
@@ -345,7 +346,7 @@ if (save == TRUE) {ggsave(file= '../all_plots/vsp3e.svg', plot = vsp3e)}
 
 ```
 
-```{r Stats and Stars 3E}
+```{r figure 3e stats}
 ## within pt
 fig3estats = data %>% 
   mutate(switch_cond = paste0('sw', switch_hands)) %>%
