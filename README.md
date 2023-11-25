@@ -1,6 +1,8 @@
 ## Dissociable Codes in Motor Working Memory
 This repo contains data has been preprocessed from its original form for clarity and usability and size. It contains trial-level information. If you would like to request raw data, please contact Hanna Hillman, at hanna.hillman@yale.edu. It also contains R Markdown scripts that reproduce the figures and statistics referenced in Dissociable Codes in Motor Working Memory (Hillman, et. al., 2023)
 
+## DOI ##
+10.5281/zenodo.10206635
 
 ## Experiment 1
 column_name: variable
