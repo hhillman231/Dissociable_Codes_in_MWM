@@ -309,7 +309,7 @@ if (save == TRUE) { ggsave(file= '../all_plots/del2ctop.svg', plot = del2ctop)}
 ```
 
 Figure 2c - Switch Cost (bottom)
-```{r figure 2C bottom cost}
+```{r figure 2c bottom cost}
 
 ## within pt
 fig2ccost = data %>% 
